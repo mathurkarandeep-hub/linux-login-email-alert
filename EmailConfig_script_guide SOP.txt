@@ -1,0 +1,121 @@
+You want email alerts for:
+	1. Login to server 
+	2. Server startup (power ON) 
+	3. Server shutdown (power OFF) 
+
+Let’s set this up cleanly on Ubuntu using a lightweight approach.
+
+Step 1: Install Mail Utility
+We’ll use mailutils (simple and works well with scripts)
+
+sudo apt update
+sudo apt install mailutils -y
+During install, choose:
+➡️ Internet Site
+➡️ Enter your domain or just press OK
+
+Step 2: Configure Email (Gmail Example)
+Edit postfix config:
+
+sudo nano /etc/postfix/main.cf
+
+Add at the end:
+
+relayhost = [smtp.gmail.com]:587
+smtp_use_tls = yes
+smtp_sasl_auth_enable = yes
+smtp_sasl_password_maps = hash:/etc/postfix/sasl_passwd
+smtp_sasl_security_options = noanonymous
+smtp_tls_CAfile = /etc/ssl/certs/ca-certificates.crt
+
+Now create credentials file:
+sudo nano /etc/postfix/sasl_passwd
+Add:
+
+[smtp.gmail.com]:587 your_email@gmail.com:your_app_password
+⚠️ Use App Password, not your real Gmail password.
+
+Secure it:
+
+sudo chmod 600 /etc/postfix/sasl_passwd
+sudo postmap /etc/postfix/sasl_passwd
+sudo systemctl restart postfix
+
+Test email:
+
+echo "Test email from server" | mail -s "Test" your_email@gmail.com
+
+Step 3: Alert on Login (SSH / Console)
+
+Edit SSH login script:
+
+sudo nano /etc/profile.d/login-alert.sh
+
+Add:
+
+#!/bin/bash
+
+IP=$(who -u am i | awk '{print $NF}' | tr -d '()')
+USER=$(whoami)
+HOST=$(hostname)
+DATE=$(date)
+
+echo "Login Alert:
+User: $USER
+IP: $IP
+Host: $HOST
+Time: $DATE" | mail -s "🚨 Server Login Alert" your_email@gmail.com
+
+Make executable:
+
+sudo chmod +x /etc/profile.d/login-alert.sh
+
+Step 4: Alert on Server Startup (Power ON)
+Create systemd service:
+
+sudo nano /etc/systemd/system/startup-alert.service
+
+Add:
+
+[Unit]
+Description=Send Email on Startup
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'echo "Server STARTED at $(date) on $(hostname)" | mail -s "🟢 Server Started" your_email@gmail.com'
+
+[Install]
+WantedBy=multi-user.target
+
+
+Enable it:
+sudo systemctl daemon-reexec
+sudo systemctl enable startup-alert.service
+
+Step 5: Alert on Shutdown (Power OFF)
+Create shutdown service:
+
+sudo nano /etc/systemd/system/shutdown-alert.service
+
+Add:
+
+[Unit]
+Description=Send Email on Shutdown
+DefaultDependencies=no
+Before=shutdown.target reboot.target halt.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'echo "Server STOPPED at $(date) on $(hostname)" | mail -s "🔴 Server Stopped" your_email@gmail.com'
+
+[Install]
+WantedBy=halt.target reboot.target shutdown.target
+
+Enable it:
+sudo systemctl enable shutdown-alert.service
+
+✅ Final Result
+Now you’ll get emails for:
+✔ SSH / terminal login
+✔ Server startup
+✔ Server shutdown
