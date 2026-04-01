@@ -15,7 +15,7 @@ This project sends an email alert whenever someone logs into or logs out of a Li
 ## 📦 Setup Instructions
 
 1. Clone the repository:
-   git clone https://github.com/yourusername/linux-login-email-alert
+   git clone https://github.com/mathurkarandeep-hub/linux-login-email-alert
 
 2. Navigate to folder:
    cd linux-login-email-alert
